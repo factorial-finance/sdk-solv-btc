@@ -4,7 +4,7 @@ pnpm-lock.yaml
 pnpm-debug.log*
 
 # Build outputs
-dist/
+# dist/
 *.tsbuildinfo
 
 # Environment files
