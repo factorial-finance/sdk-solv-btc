@@ -20,14 +20,7 @@ export type OracleConfig = {
   vaultAddress: Address;
 };
 
-export type OracleData = {
-  nav: bigint;
-  navDecimals: bigint;
-  navManager: Address;
-  adminAddress: Address;
-  nextAdminAddress: Address | null;
-  vaultAddress: Address;
-};
+export type OracleData = ReturnType<typeof Oracle.parseOracleStorage>;
 
 export function oracleConfigToCell(config: OracleConfig): Cell {
   return beginCell()
@@ -236,16 +229,23 @@ export class Oracle implements Contract {
     return await provider.getState();
   }
 
-  async getOracleData(provider: ContractProvider): Promise<OracleData> {
-    const { stack } = await provider.get("get_oracle_data", []);
-    const tuple = stack.readTuple();
+  async getOracleData(provider: ContractProvider) {
+    const state = await provider.getState();
+    if (state.state.type !== "active") throw "not active";
+    if (!state.state.data) throw "not active";
+    return Oracle.parseOracleStorage(
+      Cell.fromBoc(state.state.data)[0].beginParse(),
+    );
+  }
 
-    const nav = tuple.readBigNumber();
-    const navDecimals = tuple.readBigNumber();
-    const navManager = tuple.readAddress();
-    const adminAddress = tuple.readAddress();
-    const nextAdminAddress = tuple.readAddressOpt();
-    const vaultAddress = tuple.readAddress();
+  static parseOracleStorage(slice: Slice) {
+    const nav = slice.loadCoins();
+    const navDecimals = slice.loadCoins();
+    const navManager = slice.loadAddress();
+    const adminAddress = slice.loadAddress();
+    const ref0 = slice.loadRef().beginParse();
+    const nextAdminAddress = ref0.loadAddress();
+    const vaultAddress = ref0.loadAddress();
 
     return {
       nav,

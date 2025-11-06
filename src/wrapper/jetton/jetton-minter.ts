@@ -125,8 +125,8 @@ export class JettonMinter implements Contract {
     const totalSupply = res.stack.readBigNumber();
     const mintable = res.stack.readBoolean();
     const adminAddress = res.stack.readAddress();
-    const content = "Cell"; //res.stack.readCell();
-    const walletCode = "Cell"; //res.stack.readCell();
+    const content = res.stack.readCell();
+    const walletCode = res.stack.readCell();
     return {
       totalSupply,
       mintable,
