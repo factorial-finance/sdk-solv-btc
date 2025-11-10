@@ -26,7 +26,7 @@ export async function run() {
     requestHash,
   );
 
-  const signature = Buffer.from([]); //
+  const signature = Buffer.from([]);
 
   const result = await withdrawClaim({
     sender,

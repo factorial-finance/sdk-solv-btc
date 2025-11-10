@@ -1,16 +1,6 @@
-import {
-  Address,
-  Sender,
-  toNano,
-  OpenedContract,
-  Message,
-  Dictionary,
-  Transaction,
-  SenderArguments,
-} from "@ton/core";
+import { Address, toNano, OpenedContract } from "@ton/core";
 import { SolvBTCVault } from "../wrapper/solv/SolvBTCVault";
 import { JettonMinter } from "../wrapper/jetton/jetton-minter";
-import { TonClient, WalletContractV5R1 } from "@ton/ton";
 import { AddressSender } from "./type";
 
 export async function treasurer_deposit(params: {
