@@ -14,19 +14,8 @@ export async function config() {
     "test test test test test test test test test test test junk";
   const keyPair = await mnemonicToWalletKey(mnemonic.split(" "));
 
-  // Network global IDs, -239 is mainnet, -3 is testnet
   const wallet = client.open(
-    WalletContractV5R1.create({
-      publicKey: keyPair.publicKey,
-      walletId: {
-        networkGlobalId: network === "mainnet" ? -239 : -3,
-        context: {
-          workchain: 0,
-          walletVersion: "v5r1",
-          subwalletNumber: 0,
-        },
-      },
-    }),
+    WalletContractV5R1.create({ publicKey: keyPair.publicKey }),
   );
 
   const sender: AddressSender = {
