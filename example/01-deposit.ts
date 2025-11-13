@@ -4,18 +4,14 @@ import { config } from "./00-basic";
 
 export async function run() {
   const { client, wallet, sender, keyPair } = await config();
-  const vault = client.open(
-    SolvBTCVault.createFromAddress(Address.parse("SolvBTCVault")),
-  );
-  const depositCurrency = client.open(
-    JettonMinter.createFromAddress(Address.parse("depositCurrency")),
-  );
   const depositAmount = toNano(1);
+
   const result = await deposit({
     sender,
-    vault,
-    depositCurrency,
-    depositAmount,
+    client,
+    vaultAddress: Address.parse("SolvBTCVault"),
+    depositCurrencyAddress: Address.parse("depositCurrency"),
+    depositAmount: depositAmount,
   });
   console.log("deposit queryId:", result.queryId);
 }
