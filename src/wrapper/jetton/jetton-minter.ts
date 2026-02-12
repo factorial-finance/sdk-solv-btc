@@ -20,7 +20,7 @@ export type JettonMinterContent = {
 
 export interface JettonMinterConfig {
   adminAddress: Address;
-  mintToAuthority: Address;
+  mintToAuthority: Address | null;
   walletCode: Cell;
   jettonContent: Cell | JettonMinterContent;
 }
@@ -50,6 +50,7 @@ export function jettonMinterConfigToCell(config: JettonMinterConfig): Cell {
 export class JettonMinter implements Contract {
   static Op = {
     TOP_UP: 0xd372158c,
+    ChangeMetadataURI: 0xcb862902,
     InternalTransfer: 0x178d4519,
     Mint: 0x642b7d07,
     GrantRole: 0xf3a6d21d,
@@ -174,6 +175,23 @@ export class JettonMinter implements Contract {
       body: beginCell()
         .storeUint(JettonMinter.Op.TOP_UP, 32)
         .storeUint(0, 64)
+        .endCell(),
+    });
+  }
+
+  async sendChangeMetadataURI(
+    provider: ContractProvider,
+    via: Sender,
+    uri: string,
+    value: bigint = toNano(0.01), // minter reserve 1 ton
+  ) {
+    await provider.internal(via, {
+      value,
+      sendMode: SendMode.PAY_GAS_SEPARATELY,
+      body: beginCell()
+        .storeUint(JettonMinter.Op.ChangeMetadataURI, 32)
+        .storeUint(0, 64) // queryId
+        .storeStringTail(uri)
         .endCell(),
     });
   }

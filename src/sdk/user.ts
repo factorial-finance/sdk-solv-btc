@@ -15,27 +15,29 @@ import { createQueryId } from "./utils";
 
 export async function deposit(params: {
   sender: AddressSender;
-  vault: OpenedContract<SolvBTCVault>;
-  depositCurrency: OpenedContract<JettonMinter>;
+  client: TonClient;
+  vaultAddress: Address;
+  depositCurrencyAddress: Address;
   depositAmount: bigint;
   responseAddress?: Address;
   value?: bigint;
   forwardTonAmount?: bigint;
   queryId?: bigint;
 }) {
-  const jettonWallet = await params.depositCurrency.getWallet(
-    params.sender.address,
+  const depositCurrency = params.client.open(
+    JettonMinter.createFromAddress(params.depositCurrencyAddress),
   );
+  const jettonWallet = await depositCurrency.getWallet(params.sender.address);
 
-  const forwardTonAmount = params.forwardTonAmount ?? toNano(0.3); // TODO: review mint error(first mint: 1.2, after: 0.4...)
+  const forwardTonAmount = params.forwardTonAmount ?? toNano(0.3);
   const value = params.value ?? forwardTonAmount + toNano(0.03);
 
   const forwardPayload = SolvBTCVault.createDepositPayload({
-    currencyAddress: params.depositCurrency.address,
+    currencyAddress: params.depositCurrencyAddress,
   });
   const opts = {
     amount: params.depositAmount,
-    recipient: params.vault.address,
+    recipient: params.vaultAddress,
     response: params.responseAddress ?? params.sender.address,
     forwardTonAmount: forwardTonAmount,
     forwardPayload: forwardPayload,
@@ -48,8 +50,8 @@ export async function deposit(params: {
 
 export async function withdrawRequest(params: {
   sender: AddressSender;
-  vault: OpenedContract<SolvBTCVault>;
-  vaultCurrency: OpenedContract<JettonMinter>;
+  client: TonClient;
+  vaultAddress: Address;
   withdrawAmount: bigint;
   requestHash: bigint;
   responseAddress?: Address;
@@ -57,19 +59,27 @@ export async function withdrawRequest(params: {
   forwardTonAmount?: bigint;
   queryId?: bigint;
 }) {
+  const vault = params.client.open(
+    SolvBTCVault.createFromAddress(params.vaultAddress),
+  );
+  const vaultData = await vault.getVaultData();
+  const withdrawCurrency = params.client.open(
+    JettonMinter.createFromAddress(vaultData.vaultTokenAddress),
+  );
+  const vaultCurrencyWallet = await withdrawCurrency.getWallet(
+    params.sender.address,
+  );
+
   const forwardPayload = SolvBTCVault.createWithdrawRequestPayload({
     requestHash: params.requestHash,
   });
-  const vaultCurrencyWallet = await params.vaultCurrency.getWallet(
-    params.sender.address,
-  );
 
   const forwardTonAmount = params.forwardTonAmount ?? toNano(0.2);
   const value = params.value ?? forwardTonAmount + toNano(0.05);
 
   const opts = {
     amount: params.withdrawAmount,
-    recipient: params.vault.address,
+    recipient: vault.address,
     response: params.responseAddress ?? params.sender.address,
     forwardTonAmount: forwardTonAmount,
     forwardPayload: forwardPayload,
@@ -83,7 +93,8 @@ export async function withdrawRequest(params: {
 
 export async function withdrawClaim(params: {
   sender: AddressSender;
-  vault: OpenedContract<SolvBTCVault>;
+  client: TonClient;
+  vaultAddress: Address;
   withdrawer: Address;
   withdrawAmount: bigint;
   nav: bigint;
@@ -104,14 +115,18 @@ export async function withdrawClaim(params: {
     queryId: 0n,
   };
   opts.queryId = params.queryId ?? createQueryId(opts);
-  await params.vault.sendWithdraw(params.sender, value, opts);
+
+  const vault = params.client.open(
+    SolvBTCVault.createFromAddress(params.vaultAddress),
+  );
+  await vault.sendWithdraw(params.sender, value, opts);
   return opts;
 }
 
-export async function findWithdrawInfoAndWait(
+export async function findWithdrawRequestInfoAndWait(
   params: {
     client: TonClient;
-    vault: OpenedContract<SolvBTCVault>;
+    vaultAddress: Address;
     withdrawer: Address;
     requestHash: bigint;
     queryId?: bigint;
@@ -124,13 +139,7 @@ export async function findWithdrawInfoAndWait(
 
   while (true) {
     try {
-      return await getWithdrawRequestInfo(
-        params.client,
-        params.vault,
-        params.withdrawer,
-        params.requestHash,
-        params.queryId,
-      );
+      return await getWithdrawRequestInfo(params);
     } catch (error) {
       if (Date.now() - startTime > waitSeconds) {
         throw error;
@@ -141,13 +150,16 @@ export async function findWithdrawInfoAndWait(
   }
 }
 
-export async function getWithdrawRequestInfo(
-  client: TonClient,
-  vault: OpenedContract<SolvBTCVault>,
-  withdrawer: Address,
-  requestHash: bigint,
-  queryId?: bigint,
-) {
+export async function getWithdrawRequestInfo(params: {
+  client: TonClient;
+  vaultAddress: Address;
+  withdrawer: Address;
+  requestHash: bigint;
+  queryId?: bigint;
+}) {
+  const vault = params.client.open(
+    SolvBTCVault.createFromAddress(params.vaultAddress),
+  );
   const vaultData = await vault.getVaultData();
   const limit = 100;
   const txQuery: { lt?: string; hash?: string } = {
@@ -155,19 +167,24 @@ export async function getWithdrawRequestInfo(
     hash: undefined,
   };
   while (true) {
-    const txs = await client.getTransactions(vault.address, {
+    const txs = await params.client.getTransactions(vault.address, {
       limit: 100,
       lt: txQuery.lt,
       hash: txQuery.hash,
       archival: true,
     });
 
-    const tx = findWithdrawHashTx(txs, withdrawer, requestHash, queryId);
+    const tx = findWithdrawHashTx(
+      txs,
+      params.withdrawer,
+      params.requestHash,
+      params.queryId,
+    );
     if (tx) {
       const hashInfo = findWithdrawHashInfo(
         tx.outMessages,
-        withdrawer,
-        requestHash,
+        params.withdrawer,
+        params.requestHash,
         vaultData.withdrawCurrencyAddress,
       );
       return hashInfo;
@@ -216,7 +233,6 @@ export function findWithdrawHashTx(
     return withdrawRequestTxs[0];
   }
   throw new Error("Withdraw request Tx not found");
-  // TODO: waiting confirms
 }
 
 export function findWithdrawHashInfo(

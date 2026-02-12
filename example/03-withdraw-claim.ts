@@ -8,29 +8,26 @@ import {
 import { config } from "./00-basic";
 
 export async function run() {
-  const { client, wallet, sender, keyPair } = await config();
+  const { client, wallet, sender } = await config();
   const vault = client.open(
     SolvBTCVault.createFromAddress(Address.parse("SolvBTCVault")),
   );
-  const vaultCurrency = client.open(
-    JettonMinter.createFromAddress(Address.parse("vaultCurrency")),
-  );
-  const withdrawAmount = toNano(0.5);
 
   // NOTE: Use the same requestHash from withdrawRequest tx. Backend provides signature for verification.
   const requestHash = 9999n;
-  const { signInput, withdrawHash } = await getWithdrawRequestInfo(
+  const { signInput, withdrawHash } = await getWithdrawRequestInfo({
     client,
-    vault,
-    wallet.address,
+    vaultAddress: vault.address,
+    withdrawer: wallet.address,
     requestHash,
-  );
+  });
 
   const signature = Buffer.from([]);
 
   const result = await withdrawClaim({
     sender,
-    vault,
+    client,
+    vaultAddress: vault.address,
     withdrawer: signInput.withdrawer,
     withdrawAmount: signInput.burnAmount,
     nav: signInput.nav,

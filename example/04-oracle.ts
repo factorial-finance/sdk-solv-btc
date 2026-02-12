@@ -1,11 +1,5 @@
 import { Address, toNano } from "@ton/ton";
-import {
-  getWithdrawRequestInfo,
-  JettonMinter,
-  Oracle,
-  SolvBTCVault,
-  withdrawClaim,
-} from "sdk-solv-btc";
+import { Oracle } from "sdk-solv-btc";
 import { config } from "./00-basic";
 
 export async function run() {
